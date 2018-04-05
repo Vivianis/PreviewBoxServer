@@ -3,11 +3,13 @@ var fs = require('fs');
 var url = require('url');
 var path = require('path');
 var http = require('http');
+var read = require('./read');
 
 var root = path.resolve(process.argv[2] || '.');
 
 console.log('Static root dir: ' + root);
 
+read.analyseFile();
 var server = http.createServer(function (request, response) {
     var pathname = url.parse(request.url).pathname;
     var filepath = path.join(root, pathname);

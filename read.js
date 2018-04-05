@@ -3,54 +3,152 @@
 var picture = require('./picture');
 var fs = require('fs');
 
+//文件解析
 function analyseFile() {
-    fs.readFile('MyDesign1.SCH', 'ascii', function (err, data) {
+    fs.readFile('./MyDesign1.SCH', 'ascii', function (err, data) {
         if (err) throw err;
-        var elementsSet = dealWithFile(data);
+        var elementsSet = pickUpElements(data);
         fs.writeFile('./outputFile.json', JSON.stringify(elementsSet), function (err) {
             if (err) throw err;
             console.log('文件写入成功');
         });
     });
 }
-analyseFile();
-//文件解析器
-function dealWithFile(data) {
-    var selectedData = pickUpMessage(data);
-    var lines = selectLines(selectedData);
-    var elementsSet = new picture.ElementsSet(lines);
+
+//提取图形信息
+function pickUpElements(data) {
+    var elementsSet = new picture.ElementsSet([], 0, [], 0);
+    var symbol;
+    var i = data.search(/\(sheet/);
+    var refSite;
+    while (i < data.length) {
+        var k = data.slice(i).search(/\(symbol |\(line/);
+        if (k != -1) {
+            i = i + k;
+            if (data[i + 1] == "s") {
+                symbol = pickUpSymbol(data, i);
+                if (symbol.name.search(/HEADER/) != -1) {
+                    elementsSet.nHeaders[elementsSet.nHeadersNum++] = symbol;
+                }
+                else {
+                    console.log('not return a header');
+                }
+            }
+            else {
+                symbol = pickUpLine(data, i);
+                elementsSet.lines[elementsSet.linesNum++] = symbol;
+            }
+            i++;
+        } else break;
+    }
+    console.log(elementsSet);
     return elementsSet;
 }
 
-//提取文件图像信息
-function pickUpMessage(data) {
-    var i = data.search(/\(sheet/);
-    var j = data.search(/\(programState/);
-    var message = data.slice(i, j - 1);
-    return message;
+//提取“symbol”信息
+function pickUpSymbol(data, symbolSite) {
+    var symbolName;
+    var i = 0, j, k = 0, m, n;
+    i = symbolSite + data.slice(symbolSite).search(/"/);
+    j = i + 1 + data.slice(i + 1).search(/"/);
+    symbolName = data.slice(i + 1, j);
+    var searchString = new RegExp("symbolDef \"" + symbolName + "\"");
+    m = data.search(searchString);
+    if ((symbolName.search(/HEADER/)) != -1) {
+        var nHeader = pickUpNHeader(data, symbolName, symbolSite, m);
+        console.log(nHeader);
+        return nHeader;
+    }
+    else {
+        console.log('not header');
+    }
 }
 
-//图像信息处理
-function selectLines(data) {
-    var i = 0, j;
-    var lineNum = 0;
-    var lines = [];
-    while (data.slice(i).search(/\(line/) != -1) {
-        i = i + data.slice(i).search(/\(line/);
-        i = i + data.slice(i).search(/ /);
-        j = i + 1 + data.slice(i + 1).search(/ /);
-        var startX = Number(data.slice(i + 1, j));
-        i = j;
-        j = j + data.slice(j).search(/\)/);
-        var startY = Number(data.slice(i + 1, j));
-        i = j + data.slice(j).search(/ /);
-        j = i + 1 + data.slice(i + 1).search(/ /);
-        var endX = Number(data.slice(i + 1, j));
-        i = j;
-        j = j + data.slice(j).search(/\)/);
-        var endY = Number(data.slice(i + 1, j));
-        lines[lineNum++] = new picture.Line(startX, startY, endX, endY);
-    }
-    return lines;
+//提取“line”信息
+function pickUpLine(data, lineSite) {
+    var i, j;
+    var line;
+    i = lineSite + data.slice(lineSite).search(/ /);
+    j = i + 1 + data.slice(i + 1).search(/ /);
+    var startX = Number(data.slice(i + 1, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    var startY = Number(data.slice(i + 1, j));
+    i = j + data.slice(j).search(/ /);
+    j = i + 1 + data.slice(i + 1).search(/ /);
+    var endX = Number(data.slice(i + 1, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    var endY = Number(data.slice(i + 1, j));
+    line = new picture.Line(startX, startY, endX, endY);
+    console.log(line);
+    return line;
 }
+
+//提取“pin”信息
+function pickUpPin(data, pinSite) {
+    var pinNum = 0, footX, footY, rotation, length;
+    var pinNumX, pinNumY;
+    var i, j;
+    i = pinSite + data.slice(pinSite).search(/pinNum/) + 7;
+    j = i + data.slice(i).search(/\)/);
+    pinNum = data.slice(i, j);
+    i = j + data.slice(j).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    footX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    footY = Number(data.slice(i + 1, j));
+    i = j + data.slice(j).search(/rotation/) + 9;
+    j = i + data.slice(i).search(/\)/);
+    rotation = Number(data.slice(i, j));
+    i = j + data.slice(j).search(/pinLength/) + 10;
+    j = i + data.slice(i).search(/\)/);
+    length = Number(data.slice(i, j));
+    i = j + data.slice(j).search(/pinName/);
+    i = i + data.slice(i).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    pinNumX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    pinNumY = Number(data.slice(i + 1, j));
+    var pin = new picture.Pin(pinNum, pinNumX, pinNumY, footX, footY, rotation, length);
+    console.log(pin);
+    return pin;
+}
+
+//提取“Header”信息
+function pickUpNHeader(data, symbolName, symbolSite, refSite) {
+    var headerX, headerY;
+    var headerRotation;
+    var lines = [], linesNum = 0;
+    var pins = [], pinsNum = 0;
+    var i, j;
+    i = symbolSite + data.slice(symbolSite).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    headerX = data.slice(i, j);
+    i = j + 1;
+    j = i + data.slice(i).search(/\)/);
+    headerY = data.slice(i, j);
+    i = i + data.slice(i).search(/rotation/) + 9;
+    j = i + data.slice(i).search(/\)/);
+    headerRotation = Number(data.slice(i, j));
+    var refEnd = refSite + 1 + data.slice(refSite + 1).search(/\(symbolDef|\(compDef/);
+    i = refSite;
+    while (i < refEnd) {
+        i = i + data.slice(i).search(/pin |line/);
+        if (i < refEnd) {
+            if (data[i] == 'p') {
+                pins[pinsNum++] = pickUpPin(data, i);
+            }
+            else if (data[i] == 'l') {
+                lines[linesNum++] = pickUpLine(data, i);
+            }
+            i++;
+        }
+    }
+    var nHeader = new picture.NHeader(symbolName, headerX, headerY, headerRotation, lines, pins);
+    return nHeader;
+}
+
 module.exports = { analyseFile: analyseFile };
