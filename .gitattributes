@@ -1,3 +1,2 @@
-*.SCH linguish-language=JavaScript
-*.json linguish-language=JavaScript
-*.js linguish-language=JavaScript
+*.SCH linguist-language=JavaScript
+*.json linguist-language=JavaScript
