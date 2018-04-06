@@ -5,7 +5,7 @@ var fs = require('fs');
 
 //文件解析
 function analyseFile() {
-    fs.readFile('./MyDesign1.SCH', 'ascii', function (err, data) {
+    fs.readFile('./MyDesign2.SCH', 'ascii', function (err, data) {
         if (err) throw err;
         var elementsSet = pickUpElements(data);
         fs.writeFile('./outputFile.json', JSON.stringify(elementsSet), function (err) {
@@ -27,7 +27,7 @@ function pickUpElements(data) {
             i = i + k;
             if (data[i + 1] == "s") {
                 symbol = pickUpSymbol(data, i);
-                if (symbol.name.search(/HEADER/) != -1) {
+                if (symbol.name.name.search(/HEADER/) != -1) {
                     elementsSet.nHeaders[elementsSet.nHeadersNum++] = symbol;
                 }
                 else {
@@ -56,7 +56,6 @@ function pickUpSymbol(data, symbolSite) {
     m = data.search(searchString);
     if ((symbolName.search(/HEADER/)) != -1) {
         var nHeader = pickUpNHeader(data, symbolName, symbolSite, m);
-        console.log(nHeader);
         return nHeader;
     }
     else {
@@ -81,7 +80,6 @@ function pickUpLine(data, lineSite) {
     j = i + data.slice(i).search(/\)/);
     var endY = Number(data.slice(i + 1, j));
     line = new picture.Line(startX, startY, endX, endY);
-    console.log(line);
     return line;
 }
 
@@ -90,10 +88,7 @@ function pickUpPin(data, pinSite) {
     var pinNum = 0, footX, footY, rotation, length;
     var pinNumX, pinNumY;
     var i, j;
-    i = pinSite + data.slice(pinSite).search(/pinNum/) + 7;
-    j = i + data.slice(i).search(/\)/);
-    pinNum = data.slice(i, j);
-    i = j + data.slice(j).search(/pt/) + 3;
+    i = pinSite + data.slice(pinSite).search(/pt/) + 3;
     j = i + data.slice(i).search(/ /);
     footX = Number(data.slice(i, j));
     i = j;
@@ -112,27 +107,41 @@ function pickUpPin(data, pinSite) {
     i = j;
     j = i + data.slice(i).search(/\)/);
     pinNumY = Number(data.slice(i + 1, j));
+    i = j + data.slice(j).search(/"/) + 1;
+    j = i + data.slice(i).search(/"/);
+    pinNum = data.slice(i, j);
     var pin = new picture.Pin(pinNum, pinNumX, pinNumY, footX, footY, rotation, length);
-    console.log(pin);
     return pin;
 }
 
 //提取“Header”信息
 function pickUpNHeader(data, symbolName, symbolSite, refSite) {
-    var headerX, headerY;
+    var headerX, headerY, refDesX, refDesY, nameX, nameY;
     var headerRotation;
     var lines = [], linesNum = 0;
     var pins = [], pinsNum = 0;
     var i, j;
     i = symbolSite + data.slice(symbolSite).search(/pt/) + 3;
     j = i + data.slice(i).search(/ /);
-    headerX = data.slice(i, j);
+    headerX = Number(data.slice(i, j));
     i = j + 1;
     j = i + data.slice(i).search(/\)/);
-    headerY = data.slice(i, j);
+    headerY = Number(data.slice(i, j));
     i = i + data.slice(i).search(/rotation/) + 9;
     j = i + data.slice(i).search(/\)/);
     headerRotation = Number(data.slice(i, j));
+    i = j + data.slice(j).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    refDesX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    refDesY = Number(data.slice(i + 1, j));
+    i = j + data.slice(j).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    nameX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    nameY = Number(data.slice(i + 1, j));
     var refEnd = refSite + 1 + data.slice(refSite + 1).search(/\(symbolDef|\(compDef/);
     i = refSite;
     while (i < refEnd) {
@@ -147,7 +156,7 @@ function pickUpNHeader(data, symbolName, symbolSite, refSite) {
             i++;
         }
     }
-    var nHeader = new picture.NHeader(symbolName, headerX, headerY, headerRotation, lines, pins);
+    var nHeader = new picture.NHeader(symbolName, nameX, nameY, refDesX, refDesY, headerX, headerY, headerRotation, lines, pins);
     return nHeader;
 }
 

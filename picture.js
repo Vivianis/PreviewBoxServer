@@ -14,8 +14,9 @@ function Pin(pinNum, pinNumX, pinNumY, footX, footY, rotation, length) {
     this.length = length;
 };
 
-function NHeader(name, headerX, headerY, headerRotation, lines, pins) {
-    this.name = name;
+function NHeader(name, nameX, nameY, refDesX, refDesY, headerX, headerY, headerRotation, lines, pins) {
+    this.name = { name, nameX, nameY };
+    this.refDes = { refDesX, refDesY };
     this.headerX = headerX;
     this.headerY = headerY;
     this.headerRotation = headerRotation;
