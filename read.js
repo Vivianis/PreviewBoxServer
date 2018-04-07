@@ -54,6 +54,7 @@ function pickUpSymbol(data, symbolSite) {
     var lines = [], linesNum = 0;
     var pins = [], pinsNum = 0;
     var arcs = [], arcsNum = 0;
+    var texts = [], textsNum = 0;
     var i, j;
     i = symbolSite + data.slice(symbolSite).search(/refDesRef/) + 11;
     j = i + data.slice(i).search(/"/);
@@ -82,7 +83,7 @@ function pickUpSymbol(data, symbolSite) {
     var refEnd = refSite + 1 + data.slice(refSite + 1).search(/\(symbolDef|\(compDef/);
     i = refSite;
     while (i < refEnd) {
-        i = i + data.slice(i).search(/\(pin |\(line|\(arc/);
+        i = i + data.slice(i).search(/\(pin |\(line|\(arc|\n    \(text /);
         if (i < refEnd) {
             if (data[i + 1] == 'p') {
                 pins[pinsNum++] = pickUpPin(data, i);
@@ -93,10 +94,13 @@ function pickUpSymbol(data, symbolSite) {
             else if (data[i + 1] == 'a') {
                 arcs[arcsNum++] = pickUpArc(data, i);
             }
+            else if (data[i + 6] == 't') {
+                texts[textsNum++] = pickUpText(data, i);
+            }
             i++;
         }
     }
-    var symbol = new picture.Symbol(name, nameX, nameY, refDes, refDesX, refDesY, siteX, siteY, rotation, lines, pins, arcs);
+    var symbol = new picture.Symbol(name, nameX, nameY, refDes, refDesX, refDesY, siteX, siteY, rotation, lines, pins, arcs, texts);
     return symbol;
 }
 
@@ -122,7 +126,7 @@ function pickUpLine(data, lineSite) {
 
 //提取“pin”信息
 function pickUpPin(data, pinSite) {
-    var name, nameX, nameY, outsideEdge, siteX, siteY, rotation, length;
+    var name, nameX, nameY, nameDisplay, des, desX, desY, desDisplay, outsideEdge, siteX, siteY, rotation, length;
     var i, j;
     i = pinSite + data.slice(pinSite).search(/pt/) + 3;
     j = i + data.slice(i).search(/ /);
@@ -136,14 +140,44 @@ function pickUpPin(data, pinSite) {
     i = j + data.slice(j).search(/pinLength/) + 10;
     j = i + data.slice(i).search(/\)/);
     length = Number(data.slice(i, j));
-    i = j + data.slice(j).search(/pinName/);
+    i = j + data.slice(j).search(/dispPinDes/) + 11;
     var k = data.slice(j, i).search(/outsideEdgeStyle/);
     if ((k != -1) && (data.slice(j + k, j + k + 20) == "outsideEdgeStyle Dot")) {
         outsideEdge = "Dot";
-    }
-    else {
+    } else {
         outsideEdge = "";
     }
+    if (data[i] == "T") {
+        desDisplay = true;
+    } else {
+        desDisplay = false;
+    }
+    i = i + data.slice(i).search(/dispPinName/) + 12;
+    if (data[i] == "T") {
+        nameDisplay = true;
+    } else {
+        nameDisplay = false;
+    }
+    i = i + data.slice(i).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    desX = data.slice(i, j);
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    desY = data.slice(i + 1, j);
+    i = j + data.slice(j).search(/"/) + 1;
+    j = i + data.slice(i).search(/"/);
+    des = data.slice(i, j);
+    i = j + data.slice(j).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    nameX = data.slice(i, j);
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    nameY = data.slice(i + 1, j);
+    i = j + data.slice(j).search(/"/) + 1;
+    j = i + data.slice(i).search(/"/);
+    name = data.slice(i, j);
+    i = j + data.slice(j).search(/pinName/);
+
     i = i + data.slice(i).search(/pt/) + 3;
     j = i + data.slice(i).search(/ /);
     nameX = Number(data.slice(i, j));
@@ -153,7 +187,7 @@ function pickUpPin(data, pinSite) {
     i = j + data.slice(j).search(/"/) + 1;
     j = i + data.slice(i).search(/"/);
     name = data.slice(i, j);
-    var pin = new picture.Pin(name, nameX, nameY, outsideEdge, siteX, siteY, rotation, length);
+    var pin = new picture.Pin(name, nameX, nameY, nameDisplay, des, desX, desY, desDisplay, outsideEdge, siteX, siteY, rotation, length);
     return pin;
 }
 
@@ -180,5 +214,24 @@ function pickUpArc(data, arcSite) {
     width = Number(data.slice(i, j));
     var arc = new picture.Arc(oX, oY, radius, startAngle, sweepAngle, width);
     return arc;
+}
+
+function pickUpText(data, textSite) {
+    var siteX, siteY, content, rotation;
+    var i, j;
+    i = textSite + data.slice(textSite).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    siteX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    siteY = Number(data.slice(i + 1, j));
+    i = j + data.slice(j).search(/"/) + 1;
+    j = i + data.slice(i).search(/"/);
+    content = data.slice(i, j);
+    i = j + data.slice(j).search(/rotation/) + 9;
+    j = i + data.slice(i).search(/\)/);
+    rotation = Number(data.slice(i, j));
+    var text = new picture.Text(siteX, siteY, content, rotation);
+    return text;
 }
 module.exports = { analyseFile: analyseFile };
