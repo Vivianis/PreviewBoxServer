@@ -3,37 +3,44 @@ function Line(startX, startY, endX, endY) {
     this.startY = startY;
     this.endX = endX;
     this.endY = endY;
-};
-
-function Pin(pinNum, pinNumX, pinNumY, footX, footY, rotation, length) {
-    this.pinNum = { pinNum, pinNumX, pinNumY };
-    this.outsideRadius = 25;
-    this.footX = footX;
-    this.footY = footY;
-    this.rotation = rotation;
-    this.length = length;
-};
-
-function NHeader(name, nameX, nameY, refDesX, refDesY, headerX, headerY, headerRotation, lines, pins) {
-    this.name = { name, nameX, nameY };
-    this.refDes = { refDesX, refDesY };
-    this.headerX = headerX;
-    this.headerY = headerY;
-    this.headerRotation = headerRotation;
-    this.lines = lines;
-    this.pins = pins;
 }
 
-function ElementsSet(lines, linesNum, nHeaders, nHeadersNum) {
+function Pin(name, nameX, nameY, outsideEdge, siteX, siteY, rotation, length) {
+    this.nameMsg = { name, nameX, nameY };
+    this.outsideEdge = outsideEdge;
+    this.footSite = { siteX, siteY };
+    this.rotation = rotation;
+    this.length = length;
+}
+
+function Arc(oX, oY, radius, startAngle, sweepAngle, width) {
+    this.oX = oX;
+    this.oY = oY;
+    this.radius = radius;
+    this.startAngle = startAngle;
+    this.sweepAngle = sweepAngle;
+    this.width = width;
+}
+
+function Symbol(name, nameX, nameY, refDes, refDesX, refDesY, siteX, siteY, rotation, lines, pins, arcs) {
+    this.nameMsg = { name, nameX, nameY };
+    this.refDesMsg = { refDes, refDesX, refDesY };
+    this.site = { siteX, siteY };
+    this.rotation = rotation;
     this.lines = lines;
-    this.linesNum = linesNum;
-    this.nHeaders = nHeaders;
-    this.nHeadersNum = nHeadersNum;
-};
+    this.pins = pins;
+    this.arcs = arcs;
+}
+
+function ElementsSet(lines, linesNum, symbols, symbolsNum) {
+    this.linesMsg = { lines, linesNum };
+    this.symbolsMsg = { symbols, symbolsNum };
+}
 
 module.exports = {
     Line: Line,
     Pin: Pin,
-    NHeader: NHeader,
+    Arc: Arc,
+    Symbol: Symbol,
     ElementsSet: ElementsSet
-};
+}

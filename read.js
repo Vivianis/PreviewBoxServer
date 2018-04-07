@@ -5,7 +5,7 @@ var fs = require('fs');
 
 //文件解析
 function analyseFile() {
-    fs.readFile('./MyDesign2.SCH', 'ascii', function (err, data) {
+    fs.readFile('./MyDesign.SCH', 'ascii', function (err, data) {
         if (err) throw err;
         var elementsSet = pickUpElements(data);
         fs.writeFile('./outputFile.json', JSON.stringify(elementsSet), function (err) {
@@ -18,7 +18,7 @@ function analyseFile() {
 //提取图形信息
 function pickUpElements(data) {
     var elementsSet = new picture.ElementsSet([], 0, [], 0);
-    var symbol;
+    var element;
     var i = data.search(/\(sheet/);
     var refSite;
     while (i < data.length) {
@@ -26,17 +26,12 @@ function pickUpElements(data) {
         if (k != -1) {
             i = i + k;
             if (data[i + 1] == "s") {
-                symbol = pickUpSymbol(data, i);
-                if (symbol.name.name.search(/HEADER/) != -1) {
-                    elementsSet.nHeaders[elementsSet.nHeadersNum++] = symbol;
-                }
-                else {
-                    console.log('not return a header');
-                }
+                element = pickUpSymbol(data, i);
+                elementsSet.symbolsMsg.symbols[elementsSet.symbolsMsg.symbolsNum++] = element;
             }
             else {
-                symbol = pickUpLine(data, i);
-                elementsSet.lines[elementsSet.linesNum++] = symbol;
+                element = pickUpLine(data, i);
+                elementsSet.linesMsg.lines[elementsSet.linesMsg.linesNum++] = element;
             }
             i++;
         } else break;
@@ -47,20 +42,62 @@ function pickUpElements(data) {
 
 //提取“symbol”信息
 function pickUpSymbol(data, symbolSite) {
-    var symbolName;
-    var i = 0, j, k = 0, m, n;
+    var name;
+    var i = 0, j, k = 0;
     i = symbolSite + data.slice(symbolSite).search(/"/);
     j = i + 1 + data.slice(i + 1).search(/"/);
-    symbolName = data.slice(i + 1, j);
-    var searchString = new RegExp("symbolDef \"" + symbolName + "\"");
-    m = data.search(searchString);
-    if ((symbolName.search(/HEADER/)) != -1) {
-        var nHeader = pickUpNHeader(data, symbolName, symbolSite, m);
-        return nHeader;
+    name = data.slice(i + 1, j);
+    var searchString = new RegExp("symbolDef \"" + name + "\"");
+    var refSite = data.search(searchString);
+
+    var siteX, siteY, refDes, refDesX, refDesY, rotation, nameX, nameY;
+    var lines = [], linesNum = 0;
+    var pins = [], pinsNum = 0;
+    var arcs = [], arcsNum = 0;
+    var i, j;
+    i = symbolSite + data.slice(symbolSite).search(/refDesRef/) + 11;
+    j = i + data.slice(i).search(/"/);
+    refDes = data.slice(i, j);
+    i = j + data.slice(j).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    siteX = Number(data.slice(i, j));
+    i = j + 1;
+    j = i + data.slice(i).search(/\)/);
+    siteY = Number(data.slice(i, j));
+    i = i + data.slice(i).search(/rotation/) + 9;
+    j = i + data.slice(i).search(/\)/);
+    rotation = Number(data.slice(i, j));
+    i = j + data.slice(j).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    refDesX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    refDesY = Number(data.slice(i + 1, j));
+    i = j + data.slice(j).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    nameX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    nameY = Number(data.slice(i + 1, j));
+    var refEnd = refSite + 1 + data.slice(refSite + 1).search(/\(symbolDef|\(compDef/);
+    i = refSite;
+    while (i < refEnd) {
+        i = i + data.slice(i).search(/\(pin |\(line|\(arc/);
+        if (i < refEnd) {
+            if (data[i + 1] == 'p') {
+                pins[pinsNum++] = pickUpPin(data, i);
+            }
+            else if (data[i + 1] == 'l') {
+                lines[linesNum++] = pickUpLine(data, i);
+            }
+            else if (data[i + 1] == 'a') {
+                arcs[arcsNum++] = pickUpArc(data, i);
+            }
+            i++;
+        }
     }
-    else {
-        console.log('not header');
-    }
+    var symbol = new picture.Symbol(name, nameX, nameY, refDes, refDesX, refDesY, siteX, siteY, rotation, lines, pins, arcs);
+    return symbol;
 }
 
 //提取“line”信息
@@ -85,15 +122,14 @@ function pickUpLine(data, lineSite) {
 
 //提取“pin”信息
 function pickUpPin(data, pinSite) {
-    var pinNum = 0, footX, footY, rotation, length;
-    var pinNumX, pinNumY;
+    var name, nameX, nameY, outsideEdge, siteX, siteY, rotation, length;
     var i, j;
     i = pinSite + data.slice(pinSite).search(/pt/) + 3;
     j = i + data.slice(i).search(/ /);
-    footX = Number(data.slice(i, j));
+    siteX = Number(data.slice(i, j));
     i = j;
     j = i + data.slice(i).search(/\)/);
-    footY = Number(data.slice(i + 1, j));
+    siteY = Number(data.slice(i + 1, j));
     i = j + data.slice(j).search(/rotation/) + 9;
     j = i + data.slice(i).search(/\)/);
     rotation = Number(data.slice(i, j));
@@ -101,63 +137,48 @@ function pickUpPin(data, pinSite) {
     j = i + data.slice(i).search(/\)/);
     length = Number(data.slice(i, j));
     i = j + data.slice(j).search(/pinName/);
+    var k = data.slice(j, i).search(/outsideEdgeStyle/);
+    if ((k != -1) && (data.slice(j + k, j + k + 20) == "outsideEdgeStyle Dot")) {
+        outsideEdge = "Dot";
+    }
+    else {
+        outsideEdge = "";
+    }
     i = i + data.slice(i).search(/pt/) + 3;
-    j = i + data.slice(i).search(/ /);
-    pinNumX = Number(data.slice(i, j));
-    i = j;
-    j = i + data.slice(i).search(/\)/);
-    pinNumY = Number(data.slice(i + 1, j));
-    i = j + data.slice(j).search(/"/) + 1;
-    j = i + data.slice(i).search(/"/);
-    pinNum = data.slice(i, j);
-    var pin = new picture.Pin(pinNum, pinNumX, pinNumY, footX, footY, rotation, length);
-    return pin;
-}
-
-//提取“Header”信息
-function pickUpNHeader(data, symbolName, symbolSite, refSite) {
-    var headerX, headerY, refDesX, refDesY, nameX, nameY;
-    var headerRotation;
-    var lines = [], linesNum = 0;
-    var pins = [], pinsNum = 0;
-    var i, j;
-    i = symbolSite + data.slice(symbolSite).search(/pt/) + 3;
-    j = i + data.slice(i).search(/ /);
-    headerX = Number(data.slice(i, j));
-    i = j + 1;
-    j = i + data.slice(i).search(/\)/);
-    headerY = Number(data.slice(i, j));
-    i = i + data.slice(i).search(/rotation/) + 9;
-    j = i + data.slice(i).search(/\)/);
-    headerRotation = Number(data.slice(i, j));
-    i = j + data.slice(j).search(/pt/) + 3;
-    j = i + data.slice(i).search(/ /);
-    refDesX = Number(data.slice(i, j));
-    i = j;
-    j = i + data.slice(i).search(/\)/);
-    refDesY = Number(data.slice(i + 1, j));
-    i = j + data.slice(j).search(/pt/) + 3;
     j = i + data.slice(i).search(/ /);
     nameX = Number(data.slice(i, j));
     i = j;
     j = i + data.slice(i).search(/\)/);
     nameY = Number(data.slice(i + 1, j));
-    var refEnd = refSite + 1 + data.slice(refSite + 1).search(/\(symbolDef|\(compDef/);
-    i = refSite;
-    while (i < refEnd) {
-        i = i + data.slice(i).search(/pin |line/);
-        if (i < refEnd) {
-            if (data[i] == 'p') {
-                pins[pinsNum++] = pickUpPin(data, i);
-            }
-            else if (data[i] == 'l') {
-                lines[linesNum++] = pickUpLine(data, i);
-            }
-            i++;
-        }
-    }
-    var nHeader = new picture.NHeader(symbolName, nameX, nameY, refDesX, refDesY, headerX, headerY, headerRotation, lines, pins);
-    return nHeader;
+    i = j + data.slice(j).search(/"/) + 1;
+    j = i + data.slice(i).search(/"/);
+    name = data.slice(i, j);
+    var pin = new picture.Pin(name, nameX, nameY, outsideEdge, siteX, siteY, rotation, length);
+    return pin;
 }
 
+function pickUpArc(data, arcSite) {
+    var oX, oY, radius, startAngle, sweepAngle, width;
+    var i, j;
+    i = arcSite + data.slice(arcSite).search(/pt/) + 3;
+    j = i + data.slice(i).search(/ /);
+    oX = Number(data.slice(i, j));
+    i = j;
+    j = i + data.slice(i).search(/\)/);
+    oY = Number(data.slice(i + 1, j));
+    i = j + data.slice(j).search(/radius/) + 7;
+    j = i + data.slice(i).search(/\)/);
+    radius = Number(data.slice(i, j));
+    i = j + data.slice(j).search(/startAngle/) + 11;
+    j = i + data.slice(i).search(/\)/);
+    startAngle = Number(data.slice(i, j));
+    i = j + data.slice(j).search(/sweepAngle/) + 11;
+    j = i + data.slice(i).search(/\)/);
+    sweepAngle = Number(data.slice(i, j));
+    i = j + data.slice(j).search(/width/) + 6;
+    j = i + data.slice(i).search(/\)/);
+    width = Number(data.slice(i, j));
+    var arc = new picture.Arc(oX, oY, radius, startAngle, sweepAngle, width);
+    return arc;
+}
 module.exports = { analyseFile: analyseFile };
