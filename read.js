@@ -4,8 +4,8 @@ var picture = require('./picture');
 var fs = require('fs');
 
 //文件解析
-function analyseFile() {
-    fs.readFile('./MyDesign.SCH', 'ascii', function (err, data) {
+function analyseFile(filepath) {
+    fs.readFile(filepath, 'ascii', function (err, data) {
         if (err) throw err;
         var elementsSet = pickUpElements(data);
         fs.writeFile('./outputFile.json', JSON.stringify(elementsSet), function (err) {
@@ -36,7 +36,6 @@ function pickUpElements(data) {
             i++;
         } else break;
     }
-    console.log(elementsSet);
     return elementsSet;
 }
 
