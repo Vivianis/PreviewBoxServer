@@ -4,13 +4,25 @@ var picture = require('./picture');
 var fs = require('fs');
 
 //文件解析
-function analyseFile(filepath) {
+function analyseFile(filepath, request, response) {
     fs.readFile(filepath, 'ascii', function (err, data) {
         if (err) throw err;
         var elementsSet = pickUpElements(data);
         fs.writeFile('./outputFile.json', JSON.stringify(elementsSet), function (err) {
             if (err) throw err;
             console.log('文件写入成功');
+            fs.stat(filepath, function (err, stats) {
+                if (!err && stats.isFile()) {
+                    console.log('200 ' + request.url);
+                    response.writeHead(200);
+                    fs.createReadStream("./outputFile.json").pipe(response);
+                    console.log('读取成功');
+                } else {
+                    console.log('404 ' + request.url);
+                    response.writeHead(404);
+                    response.end('404 Not Found');
+                }
+            });
         });
     });
 }
